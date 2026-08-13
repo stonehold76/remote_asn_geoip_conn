@@ -27,7 +27,17 @@ event connection_state_remove(c: connection)
 	else
 		remote_ip = c$id$orig_h;
 	
-	c$conn$remote_asn = lookup_asn(remote_ip);
+	## Zeek 8 removed lookup_asn(), which returned a bare count.
+	## lookup_autonomous_system() replaces it and returns a record whose
+	## fields are &optional -- an address with no entry in the MaxMind
+	## database yields a record with nothing set, not a zero. Leaving the
+	## field unset in that case is correct: conn.log's remote_asn is
+	## itself &optional, and "no ASN known" should read as absent rather
+	## than as AS0.
+	local as_info = lookup_autonomous_system(remote_ip);
+	if ( as_info?$number )
+		c$conn$remote_asn = as_info$number;
+
 	remote_loc = lookup_location(remote_ip);
 
 	if ( remote_loc?$country_code )
